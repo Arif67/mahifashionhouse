@@ -1126,6 +1126,7 @@ function checkFraudSteadfast($phone) {
             <a href="analytics.php" class="nav-item"><i class="fas fa-chart-line"></i> <span>Analytics</span></a>
             <div class="nav-label" style="margin-top:8px;">Management</div>
             <a href="banners.php" class="nav-item"><i class="fas fa-image"></i> <span>Banners</span></a>
+            <a href="facebook-pixel.php" class="nav-item"><i class="fab fa-facebook"></i> <span>Facebook Pixel</span></a>
             <a href="settings.php" class="nav-item"><i class="fas fa-cog"></i> <span>Settings</span></a>
             <div class="sidebar-footer" style="margin-top:8px;">
                 <a href="logout.php" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>

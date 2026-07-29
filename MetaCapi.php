@@ -253,3 +253,86 @@ function logMetaCapiError($message, $context = []) {
         @error_log('Meta CAPI: ' . $message);
     }
 }
+
+/**
+ * অ্যাডমিন প্যানেল থেকে CAPI কানেকশন টেস্ট — একটি PageView ইভেন্ট পাঠায়।
+ * @return array{ok:bool,message:string,http_code?:int,response?:mixed}
+ */
+function testMetaCapiConnection($pixelId = null, $token = null, $testEventCode = null) {
+    $pixelId = trim((string)($pixelId !== null ? $pixelId : getMetaPixelCode()));
+    $token = trim((string)($token !== null ? $token : getMetaAccessToken()));
+    $testEventCode = trim((string)($testEventCode !== null ? $testEventCode : getMetaTestEventCode()));
+
+    if ($pixelId === '' || $token === '') {
+        return ['ok' => false, 'message' => 'Pixel ID এবং Access Token দুটোই দিতে হবে।'];
+    }
+    if (!function_exists('curl_init')) {
+        return ['ok' => false, 'message' => 'সার্ভারে cURL চালু নেই — CAPI কাজ করবে না।'];
+    }
+
+    $event = [
+        'event_name'       => 'PageView',
+        'event_time'       => time(),
+        'event_id'         => generateMetaEventId('test'),
+        'action_source'    => 'website',
+        'event_source_url' => getCurrentUrl(),
+        'user_data'        => [
+            'client_ip_address' => getClientIp() ?: '127.0.0.1',
+            'client_user_agent' => getClientUserAgent() ?: 'MahiFashionHouse-Admin-CAPI-Test',
+        ],
+    ];
+
+    $payload = ['data' => [$event]];
+    if ($testEventCode !== '') {
+        $payload['test_event_code'] = $testEventCode;
+    }
+
+    $url = 'https://graph.facebook.com/' . META_CAPI_API_VERSION . '/' . rawurlencode($pixelId) . '/events?access_token=' . urlencode($token);
+
+    try {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrNo = curl_errno($ch);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        $decoded = null;
+        if (is_string($response) && $response !== '') {
+            $decoded = json_decode($response, true);
+        }
+
+        if ($curlErrNo) {
+            return ['ok' => false, 'message' => 'নেটওয়ার্ক ত্রুটি: ' . $curlError, 'http_code' => $httpCode];
+        }
+
+        if ($httpCode >= 200 && $httpCode < 300) {
+            $eventsReceived = is_array($decoded) ? ($decoded['events_received'] ?? 1) : 1;
+            $msg = 'CAPI কানেক্টেড! Meta-তে টেস্ট ইভেন্ট সফলভাবে পাঠানো হয়েছে';
+            if ($testEventCode !== '') {
+                $msg .= ' (Test Events ট্যাবে দেখুন — কোড: ' . $testEventCode . ')';
+            }
+            $msg .= ' · events_received: ' . $eventsReceived;
+            return ['ok' => true, 'message' => $msg, 'http_code' => $httpCode, 'response' => $decoded];
+        }
+
+        $errMsg = 'Meta API ত্রুটি';
+        if (is_array($decoded) && !empty($decoded['error']['message'])) {
+            $errMsg = $decoded['error']['message'];
+        } elseif (is_string($response) && $response !== '') {
+            $errMsg = substr($response, 0, 300);
+        }
+        return ['ok' => false, 'message' => $errMsg, 'http_code' => $httpCode, 'response' => $decoded];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'message' => 'Exception: ' . $e->getMessage()];
+    }
+}

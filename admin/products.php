@@ -1129,6 +1129,9 @@ $adminName = $_SESSION['admin_username'] ?? 'Admin';
             <a href="banners.php" class="nav-item">
                 <i class="fas fa-image"></i> <span>Banners</span>
             </a>
+            <a href="facebook-pixel.php" class="nav-item">
+                <i class="fab fa-facebook"></i> <span>Facebook Pixel</span>
+            </a>
             <a href="settings.php" class="nav-item">
                 <i class="fas fa-cog"></i> <span>Settings</span>
             </a>

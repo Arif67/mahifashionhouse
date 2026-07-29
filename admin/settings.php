@@ -39,31 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if ($action === 'pixel') {
-        $pixelCode = $_POST['meta_pixel_code'] ?? '';
         $googleTag = $_POST['google_tag_code'] ?? '';
-        $metaAccessToken = trim($_POST['meta_access_token'] ?? '');
-        $metaTestEventCode = trim($_POST['meta_test_event_code'] ?? '');
-        $metaCapiEnabled = isset($_POST['meta_capi_enabled']) ? '1' : '0';
-
         try {
-            query("INSERT INTO settings (setting_key, setting_value) VALUES ('meta_pixel_code', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$pixelCode, $pixelCode]);
             query("INSERT INTO settings (setting_key, setting_value) VALUES ('google_tag_code', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$googleTag, $googleTag]);
-            // পাসওয়ার্ড ফিল্ডের মতো — খালি রেখে সেভ করলে আগের Access Token মুছে যাবে না
-            if ($metaAccessToken !== '') {
-                query("INSERT INTO settings (setting_key, setting_value) VALUES ('meta_access_token', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$metaAccessToken, $metaAccessToken]);
-            }
-            query("INSERT INTO settings (setting_key, setting_value) VALUES ('meta_test_event_code', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$metaTestEventCode, $metaTestEventCode]);
-            query("INSERT INTO settings (setting_key, setting_value) VALUES ('meta_capi_enabled', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$metaCapiEnabled, $metaCapiEnabled]);
-            $message = 'পিক্সেল/ট্যাগ সেটিংস আপডেট হয়েছে!';
-        } catch (Exception $e) {
-            $error = 'ত্রুটি: ' . $e->getMessage();
-        }
-    }
-
-    if ($action === 'clear_meta_token') {
-        try {
-            query("INSERT INTO settings (setting_key, setting_value) VALUES ('meta_access_token', '') ON DUPLICATE KEY UPDATE setting_value = ''");
-            $message = 'Meta Access Token মুছে ফেলা হয়েছে!';
+            $message = 'Google Tag সেটিংস আপডেট হয়েছে!';
         } catch (Exception $e) {
             $error = 'ত্রুটি: ' . $e->getMessage();
         }
@@ -896,6 +875,9 @@ $adminName = $_SESSION['admin_username'] ?? 'Admin';
             <a href="banners.php" class="nav-item">
                 <i class="fas fa-image"></i> <span>Banners</span>
             </a>
+            <a href="facebook-pixel.php" class="nav-item">
+                <i class="fab fa-facebook"></i> <span>Facebook Pixel</span>
+            </a>
             <a href="settings.php" class="nav-item active">
                 <i class="fas fa-cog"></i> <span>Settings</span>
             </a>
@@ -1038,69 +1020,34 @@ $adminName = $_SESSION['admin_username'] ?? 'Admin';
                 </form>
             </div>
 
-            <!-- Meta Pixel -->
+            <!-- Facebook Pixel shortcut + Google Tag -->
             <div class="settings-card">
-                <h2 class="card-title"><i class="fab fa-facebook"></i>Meta Pixel / Google Tag</h2>
-                
+                <h2 class="card-title"><i class="fab fa-facebook"></i>Facebook Pixel &amp; CAPI</h2>
                 <div class="pixel-info">
                     <i class="fas fa-info-circle" style="margin-right: 5px; color: var(--primary);"></i>
-                    <strong>Meta Pixel ID:</strong> শুধুমাত্র Pixel ID নম্বরটি দিন (যেমন: <code>123456789012345</code>)। পুরো কোড নয়।<br>
+                    Pixel ID, Access Token ও Test Event Code এখন আলাদা মেনু থেকে ম্যানেজ করুন।
+                </div>
+                <a href="facebook-pixel.php" class="btn btn-primary" style="display:inline-flex;">
+                    <i class="fab fa-facebook"></i> Facebook Pixel সেটিংস খুলুন
+                </a>
+            </div>
+
+            <div class="settings-card">
+                <h2 class="card-title"><i class="fab fa-google"></i>Google Tag</h2>
+                <div class="pixel-info">
                     <strong>Google Tag ID:</strong> শুধুমাত্র Tracking ID দিন (যেমন: <code>G-XXXXXXXXXX</code> বা <code>AW-XXXXXXXXXX</code>)।
                 </div>
-                
                 <form method="POST" action="">
                     <input type="hidden" name="action" value="pixel">
-                    
-                    <div class="form-group">
-                        <label class="form-label">Meta Pixel ID</label>
-                        <input type="text" name="meta_pixel_code" class="form-input" placeholder="123456789012345" value="<?php echo $settings['meta_pixel_code'] ?? ''; ?>">
-                        <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">পিক্সেল ID ছাড়া অন্য কিছু দেবেন না</small>
-                    </div>
-                    
                     <div class="form-group">
                         <label class="form-label">Google Tag / Conversion ID</label>
                         <input type="text" name="google_tag_code" class="form-input" placeholder="G-XXXXXXXXXX বা AW-XXXXXXXXXX" value="<?php echo $settings['google_tag_code'] ?? ''; ?>">
                         <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">Google Analytics বা Ads Tracking ID</small>
                     </div>
-
-                    <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
-
-                    <div class="pixel-info" style="margin-bottom: 16px;">
-                        <i class="fas fa-server" style="margin-right: 5px; color: var(--primary);"></i>
-                        <strong>Conversions API (Server-Side):</strong> Browser Pixel বন্ধ হয়ে গেলে বা Ad Blocker থাকলেও সার্ভার থেকে সরাসরি Meta-তে ইভেন্ট পাঠানো হবে। Access Token Meta Events Manager থেকে সংগ্রহ করুন।
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">
-                            <input type="checkbox" name="meta_capi_enabled" value="1" <?php echo (($settings['meta_capi_enabled'] ?? '0') === '1') ? 'checked' : ''; ?> style="width: auto; margin-right: 6px;">
-                            Conversions API চালু করুন (Enable)
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Meta Access Token</label>
-                        <input type="password" name="meta_access_token" class="form-input" placeholder="<?php echo !empty($settings['meta_access_token']) ? '•••••••• (সেভ করা আছে — পরিবর্তন করতে নতুন টোকেন লিখুন)' : 'Meta Events Manager থেকে Access Token পেস্ট করুন'; ?>" autocomplete="off">
-                        <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">নিরাপত্তার জন্য টোকেন খালি দেখানো হয়; খালি রেখে সেভ করলে আগেরটাই থাকবে।</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Meta Test Event Code (ঐচ্ছিক)</label>
-                        <input type="text" name="meta_test_event_code" class="form-input" placeholder="TEST12345" value="<?php echo $settings['meta_test_event_code'] ?? ''; ?>">
-                        <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">Meta Events Manager-এর Test Events ট্যাব থেকে পাওয়া কোড — শুধু টেস্টের সময় ব্যবহার করুন, লাইভে খালি রাখুন।</small>
-                    </div>
-
                     <button type="submit" class="btn btn-primary" style="margin-top: 8px;">
                         <i class="fas fa-save"></i>সেভ করুন
                     </button>
                 </form>
-                <?php if (!empty($settings['meta_access_token'])): ?>
-                <form method="POST" action="" onsubmit="return confirm('Access Token মুছে ফেলতে চান? Conversions API কাজ করা বন্ধ হয়ে যাবে।');" style="margin-top: 8px;">
-                    <input type="hidden" name="action" value="clear_meta_token">
-                    <button type="submit" class="btn btn-secondary" style="color: #DC2626;">
-                        <i class="fas fa-trash"></i>Access Token মুছে ফেলুন
-                    </button>
-                </form>
-                <?php endif; ?>
             </div>
 
             <!-- Change Password -->
